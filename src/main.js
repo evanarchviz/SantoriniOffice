@@ -197,41 +197,80 @@ function makeMeshDoubleSided(mesh) {
 }
 
 function processModel(root) {
-    const glassNames = ["M_Glass_Darker", "glass", "win_glass"];
-    const mirrorNames = ["Mirror", "mirror", "M_Mirror"];
+    const clearGlassMaterialNames = new Set(["Glass"]);
+    const darkGlassMaterialNames = new Set(["DarkGlass"]);
+    const mirrorMaterialNames = new Set(["Mirror", "MirrorDiscMaterial"]);
+
+    function getMaterialName(mat) {
+        return typeof mat?.name === "string" ? mat.name.trim() : "";
+    }
+
+    function createClearGlassMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedClearGlass`,
+            color: 0xffffff,
+            transmission: 1,
+            transparent: true,
+            opacity: 0.32,
+            roughness: 0.02,
+            metalness: 0,
+            thickness: 0.04,
+            ior: 1.45,
+            envMapIntensity: 1.0,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+    }
+
+    function createDarkGlassMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedDarkGlass`,
+            color: 0x111923,
+            transmission: 0.55,
+            transparent: true,
+            opacity: 0.45,
+            roughness: 0.04,
+            metalness: 0,
+            thickness: 0.08,
+            ior: 1.45,
+            envMapIntensity: 1.2,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+    }
+
+    function createMirrorMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedMirror`,
+            color: 0xffffff,
+            metalness: 1,
+            roughness: 0.02,
+            envMap: mirrorEnvMap || scene.environment,
+            envMapIntensity: 2.0,
+            reflectivity: 1,
+            clearcoat: 1,
+            clearcoatRoughness: 0,
+            side: THREE.DoubleSide
+        });
+    }
 
     function replaceMaterial(mat) {
-        if (!mat || !mat.name) return mat;
+        const materialName = getMaterialName(mat);
+        if (!materialName) return mat;
 
-        if (mirrorNames.some((name) => mat.name.includes(name))) {
-            console.info("Replacing imported Mirror material with scripted mirror material:", mat.name);
-            return new THREE.MeshPhysicalMaterial({
-                name: `${mat.name}_Scripted`,
-                color: 0xffffff,
-                metalness: 1,
-                roughness: 0.1,
-                envMap: mirrorEnvMap || scene.environment,
-                envMapIntensity: 2.0,
-                reflectivity: 1,
-                clearcoat: 1,
-                clearcoatRoughness: 0,
-                side: THREE.DoubleSide
-            });
+        if (mirrorMaterialNames.has(materialName)) {
+            console.info("Replacing imported Mirror material with scripted mirror material:", materialName);
+            return createMirrorMaterial(materialName);
         }
 
-        if (glassNames.some((name) => mat.name.includes(name))) {
-            return new THREE.MeshPhysicalMaterial({
-                color: 0xffffff,
-                transmission: 1,
-                transparent: true,
-                opacity: 0.4,
-                roughness: 0.08,
-                metalness: 0,
-                thickness: 0,
-                ior: 1.45,
-                depthWrite: false,
-                side: THREE.DoubleSide
-            });
+        if (clearGlassMaterialNames.has(materialName)) {
+            console.info("Replacing imported Glass material with scripted clear glass material:", materialName);
+            return createClearGlassMaterial(materialName);
+        }
+
+        if (darkGlassMaterialNames.has(materialName)) {
+            console.info("Replacing imported DarkGlass material with scripted dark glass material:", materialName);
+            return createDarkGlassMaterial(materialName);
         }
         if (mat.name.includes("Black")) return new THREE.MeshBasicMaterial({ color: 0x000000 });
         return mat;
