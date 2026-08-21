@@ -209,7 +209,7 @@ function processModel(root) {
         return new THREE.MeshPhysicalMaterial({
             name: `${name}_ScriptedClearGlass`,
             color: 0xffffff,
-            transmission: 1,
+            transmission: 0.15,
             transparent: true,
             opacity: 0.32,
             roughness: 0.02,
@@ -225,7 +225,7 @@ function processModel(root) {
     function createDarkGlassMaterial(name) {
         return new THREE.MeshPhysicalMaterial({
             name: `${name}_ScriptedDarkGlass`,
-            color: 0x111923,
+            color: 0xA59789,
             transmission: 0.55,
             transparent: true,
             opacity: 0.45,
