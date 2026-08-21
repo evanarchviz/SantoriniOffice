@@ -209,13 +209,13 @@ function processModel(root) {
         return new THREE.MeshPhysicalMaterial({
             name: `${name}_ScriptedClearGlass`,
             color: 0xffffff,
-            transmission: 0.15,
+            transmission: 1,
             transparent: true,
             opacity: 0.32,
             roughness: 0.02,
             metalness: 0,
             thickness: 0.04,
-            ior: 1.45,
+            ior: 1.25,
             envMapIntensity: 1.0,
             depthWrite: false,
             side: THREE.DoubleSide
