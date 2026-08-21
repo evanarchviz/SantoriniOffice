@@ -215,7 +215,7 @@ function processModel(root) {
             roughness: 0.02,
             metalness: 0,
             thickness: 0.04,
-            ior: 1.25,
+            ior: 1.1,
             envMapIntensity: 1.0,
             depthWrite: false,
             side: THREE.DoubleSide
@@ -226,10 +226,10 @@ function processModel(root) {
         return new THREE.MeshPhysicalMaterial({
             name: `${name}_ScriptedDarkGlass`,
             color: 0xA59789,
-            transmission: 0.55,
+            transmission: 0.9,
             transparent: true,
             opacity: 0.45,
-            roughness: 0.04,
+            roughness: 0.1,
             metalness: 0,
             thickness: 0.08,
             ior: 1.45,
