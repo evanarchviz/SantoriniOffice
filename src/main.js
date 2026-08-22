@@ -27,6 +27,7 @@ let playerBaseY = 0;
 let verticalVelocity = 0;
 let isGrounded = false;
 let rightTurnReady = true;
+let zoomHeld = false;
 
 const playerHeight = 1.5;
 const playerRadius = 0.35;
@@ -43,6 +44,9 @@ const rightTeleportThreshold = 0.75;
 const rightTeleportResetThreshold = 0.25;
 const teleportRayDistance = 25;
 const teleportMarkerYOffset = 0.025;
+const normalCameraFov = 75;
+const zoomCameraFov = 35;
+const zoomLerpSpeed = 14;
 const SPAWN = new THREE.Vector3(0, 1.8, 0);
 
 const ui = {
@@ -560,6 +564,7 @@ function setupInputControls() {
         if (e.code === "KeyS") move.backward = true;
         if (e.code === "KeyA") move.left = true;
         if (e.code === "KeyD") move.right = true;
+        if (e.code === "KeyZ" && !isMobile && !renderer.xr.isPresenting) zoomHeld = true;
     });
 
     document.addEventListener("keyup", (e) => {
@@ -567,6 +572,7 @@ function setupInputControls() {
         if (e.code === "KeyS") move.backward = false;
         if (e.code === "KeyA") move.left = false;
         if (e.code === "KeyD") move.right = false;
+        if (e.code === "KeyZ") zoomHeld = false;
     });
 }
 
@@ -961,10 +967,26 @@ function applyMovement(movement, delta) {
         : playerBaseY + playerHeight;
 }
 
+function updateDesktopZoom(delta) {
+    if (!camera || isMobile || renderer.xr.isPresenting) {
+        zoomHeld = false;
+        return;
+    }
+
+    const targetFov = zoomHeld ? zoomCameraFov : normalCameraFov;
+    const nextFov = THREE.MathUtils.damp(camera.fov, targetFov, zoomLerpSpeed, delta);
+
+    if (Math.abs(camera.fov - nextFov) < 0.001) return;
+
+    camera.fov = nextFov;
+    camera.updateProjectionMatrix();
+}
+
 function animate(time, frame) {
     const delta = clock.getDelta();
 
     updateControllerModelMaterials();
+    updateDesktopZoom(delta);
 
     if (canMove && model) {
         if (renderer.xr.isPresenting) handleVRRightStickActions();
