@@ -45,7 +45,7 @@ const rightTeleportResetThreshold = 0.25;
 const teleportRayDistance = 25;
 const teleportMarkerYOffset = 0.025;
 const normalCameraFov = 75;
-const zoomCameraFov = 35;
+const zoomCameraFov = 25;
 const zoomLerpSpeed = 14;
 const SPAWN = new THREE.Vector3(0, 1.8, 0);
 
