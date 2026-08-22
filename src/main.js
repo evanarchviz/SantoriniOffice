@@ -209,7 +209,7 @@ function makeMeshDoubleSided(mesh) {
 function processModel(root) {
     const clearGlassMaterialNames = new Set(["Glass"]);
     const darkGlassMaterialNames = new Set(["DarkGlass"]);
-    const mirrorMaterialNames = new Set(["Mirror", "MirrorDiscMaterial"]);
+    const mirrorMaterialNames = new Set(["Mirror"]);
 
     function getMaterialName(mat) {
         return typeof mat?.name === "string" ? mat.name.trim() : "";
