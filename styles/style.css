@@ -40,6 +40,35 @@ body {
 
 #startScreen {
   cursor: pointer;
+  isolation: isolate;
+  overflow: hidden;
+  background: #000 url("../assets/main-render.webp") center center / cover no-repeat;
+}
+
+#startScreen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.18),
+    rgba(0, 0, 0, 0.30)
+  );
+  pointer-events: none;
+}
+
+#startScreen > * {
+  position: relative;
+  z-index: 1;
+}
+
+#startScreen h1,
+#startScreen p {
+  color: #fff;
+  text-shadow:
+    0 2px 12px rgba(0, 0, 0, 0.75),
+    0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 #startScreen.is-hidden,
