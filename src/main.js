@@ -4,8 +4,48 @@ import { MeshoptDecoder } from "https://unpkg.com/three@0.160.0/examples/jsm/lib
 import { RGBELoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/RGBELoader.js";
 import { VRButton } from "https://unpkg.com/three@0.160.0/examples/jsm/webxr/VRButton.js";
 import { XRControllerModelFactory } from "https://unpkg.com/three@0.160.0/examples/jsm/webxr/XRControllerModelFactory.js";
+import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { ShaderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/ShaderPass.js";
 
-let scene, camera, renderer, model, yawObject, pitchObject;
+const ColorAdjustShader = {
+    uniforms: {
+        tDiffuse: { value: null },
+        exposure: { value: 1.0 },
+        saturation: { value: 1.0 },
+        contrast: { value: 1.0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    `,
+    fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float exposure;
+        uniform float saturation;
+        uniform float contrast;
+        varying vec2 vUv;
+
+        void main() {
+            vec4 color = texture2D(tDiffuse, vUv);
+
+            color.rgb *= exposure;
+
+            float gray = dot(color.rgb, vec3(0.299, 0.587, 0.114));
+            color.rgb = mix(vec3(gray), color.rgb, saturation);
+
+            color.rgb = (color.rgb - 0.5) * contrast + 0.5;
+
+            gl_FragColor = color;
+        }
+    `
+};
+
+let scene, camera, renderer, composer, model, yawObject, pitchObject;
 let collisionMesh = null;
 let navMeshes = [];
 let rightController = null;
@@ -476,6 +516,25 @@ async function init() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
+    composer = new EffectComposer(renderer);
+    composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+
+const colorAdjustPass = new ShaderPass(ColorAdjustShader);
+
+colorAdjustPass.uniforms.exposure.value = 0.99;   // brightness
+colorAdjustPass.uniforms.saturation.value = 0.78; // lower = less color/yellow
+colorAdjustPass.uniforms.contrast.value = 1.0;   // lower = softer
+
+composer.addPass(colorAdjustPass);
+
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.03, // strength: glow intensity
+    0.2,  // radius: glow spread
+    0.9   // threshold: only very bright areas glow
+);
+composer.addPass(bloomPass);
     renderer.xr.enabled = !isIOS;
     container.appendChild(renderer.domElement);
 
@@ -1001,5 +1060,5 @@ function animate(time, frame) {
         applyMovement(movement, delta);
     }
 
-    renderer.render(scene, camera);
+    composer.render();
 }
