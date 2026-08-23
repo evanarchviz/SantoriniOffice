@@ -47,7 +47,7 @@ const teleportMarkerYOffset = 0.025;
 const normalCameraFov = 75;
 const zoomCameraFov = 25;
 const zoomLerpSpeed = 14;
-const SPAWN = new THREE.Vector3(-2.35058, 1.41303, -1.27302);
+const SPAWN = new THREE.Vector3(-1.27302, 1.41303, -2.35058);
 
 const ui = {
     loadingScreen: document.getElementById("loadingScreen"),
