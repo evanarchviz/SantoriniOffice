@@ -21,11 +21,13 @@ const controllerModels = [];
 
 let canMove = false;
 let isMobile = false;
+let isIOS = false;
 let pitch = 0;
 let playerBaseY = 0;
 let verticalVelocity = 0;
 let isGrounded = false;
 let rightTurnReady = true;
+let zoomHeld = false;
 
 const playerHeight = 1.5;
 const playerRadius = 0.35;
@@ -42,7 +44,11 @@ const rightTeleportThreshold = 0.75;
 const rightTeleportResetThreshold = 0.25;
 const teleportRayDistance = 25;
 const teleportMarkerYOffset = 0.025;
-const SPAWN = new THREE.Vector3(0, 1.8, 0);
+const normalCameraFov = 75;
+const zoomCameraFov = 25;
+const zoomLerpSpeed = 14;
+const SPAWN = new THREE.Vector3(-2.075, 1.7, 0.713);
+const SPAWN_YAW = THREE.MathUtils.degToRad(-60);
 
 const ui = {
     loadingScreen: document.getElementById("loadingScreen"),
@@ -61,6 +67,11 @@ init().catch((error) => showFatalError("Experience failed to start.", error));
 function detectMobile() {
     return /Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(navigator.userAgent) ||
         (window.matchMedia("(pointer: coarse)").matches && window.innerWidth < 900);
+}
+
+function detectIOS() {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 }
 
 function setStartScreenEnabled(enabled) {
@@ -179,6 +190,10 @@ async function loadSceneModel() {
 }
 
 function addVRButton() {
+    if (isIOS) {
+        console.info("Skipping WebXR button on iOS Safari. Normal walkthrough mode remains available.");
+        return;
+    }
     if (document.getElementById("VRButton")) return;
     document.body.appendChild(VRButton.createButton(renderer));
 }
@@ -197,41 +212,80 @@ function makeMeshDoubleSided(mesh) {
 }
 
 function processModel(root) {
-    const glassNames = ["M_Glass_Darker", "glass", "win_glass"];
-    const mirrorNames = ["Mirror", "mirror", "M_Mirror"];
+    const clearGlassMaterialNames = new Set(["Glass"]);
+    const darkGlassMaterialNames = new Set(["DarkGlass"]);
+    const mirrorMaterialNames = new Set(["Mirror"]);
+
+    function getMaterialName(mat) {
+        return typeof mat?.name === "string" ? mat.name.trim() : "";
+    }
+
+    function createClearGlassMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedClearGlass`,
+            color: 0xffffff,
+            transmission: 1,
+            transparent: true,
+            opacity: 0.32,
+            roughness: 0.02,
+            metalness: 0,
+            thickness: 0.04,
+            ior: 1.1,
+            envMapIntensity: 1.0,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+    }
+
+    function createDarkGlassMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedDarkGlass`,
+            color: 0x181614,
+            transmission: 0.9,
+            transparent: true,
+            opacity: 0.45,
+            roughness: 0.1,
+            metalness: 0,
+            thickness: 0.08,
+            ior: 1.45,
+            envMapIntensity: 1.2,
+            depthWrite: false,
+            side: THREE.DoubleSide
+        });
+    }
+
+    function createMirrorMaterial(name) {
+        return new THREE.MeshPhysicalMaterial({
+            name: `${name}_ScriptedMirror`,
+            color: 0xffffff,
+            metalness: 1,
+            roughness: 0.02,
+            envMap: mirrorEnvMap || scene.environment,
+            envMapIntensity: 2.0,
+            reflectivity: 1,
+            clearcoat: 1,
+            clearcoatRoughness: 0,
+            side: THREE.DoubleSide
+        });
+    }
 
     function replaceMaterial(mat) {
-        if (!mat || !mat.name) return mat;
+        const materialName = getMaterialName(mat);
+        if (!materialName) return mat;
 
-        if (mirrorNames.some((name) => mat.name.includes(name))) {
-            console.info("Replacing imported Mirror material with scripted mirror material:", mat.name);
-            return new THREE.MeshPhysicalMaterial({
-                name: `${mat.name}_Scripted`,
-                color: 0xffffff,
-                metalness: 1,
-                roughness: 0.1,
-                envMap: mirrorEnvMap || scene.environment,
-                envMapIntensity: 2.0,
-                reflectivity: 1,
-                clearcoat: 1,
-                clearcoatRoughness: 0,
-                side: THREE.DoubleSide
-            });
+        if (mirrorMaterialNames.has(materialName)) {
+            console.info("Replacing imported Mirror material with scripted mirror material:", materialName);
+            return createMirrorMaterial(materialName);
         }
 
-        if (glassNames.some((name) => mat.name.includes(name))) {
-            return new THREE.MeshPhysicalMaterial({
-                color: 0xffffff,
-                transmission: 1,
-                transparent: true,
-                opacity: 0.4,
-                roughness: 0.08,
-                metalness: 0,
-                thickness: 0,
-                ior: 1.45,
-                depthWrite: false,
-                side: THREE.DoubleSide
-            });
+        if (clearGlassMaterialNames.has(materialName)) {
+            console.info("Replacing imported Glass material with scripted clear glass material:", materialName);
+            return createClearGlassMaterial(materialName);
+        }
+
+        if (darkGlassMaterialNames.has(materialName)) {
+            console.info("Replacing imported DarkGlass material with scripted dark glass material:", materialName);
+            return createDarkGlassMaterial(materialName);
         }
         if (mat.name.includes("Black")) return new THREE.MeshBasicMaterial({ color: 0x000000 });
         return mat;
@@ -405,6 +459,7 @@ function addVRControllers() {
 
 async function init() {
     isMobile = detectMobile();
+    isIOS = detectIOS();
 
     const container = document.getElementById("container") || document.body;
     const controlsText = document.getElementById("controlsText");
@@ -421,7 +476,7 @@ async function init() {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
+    renderer.xr.enabled = !isIOS;
     container.appendChild(renderer.domElement);
 
     window.addEventListener("resize", () => {
@@ -433,11 +488,12 @@ async function init() {
     yawObject = new THREE.Object3D();
     pitchObject = new THREE.Object3D();
     yawObject.position.copy(SPAWN);
+    yawObject.rotation.y = SPAWN_YAW;
     yawObject.add(pitchObject);
     pitchObject.add(camera);
     scene.add(yawObject);
 
-    addVRControllers();
+    if (!isIOS) addVRControllers();
     teleportMarker = createTeleportMarker();
     scene.add(teleportMarker);
 
@@ -480,7 +536,7 @@ function setupInputControls() {
         ui.startScreen?.addEventListener("click", async () => {
             ui.startScreen.style.display = "none";
             canMove = true;
-            if (document.documentElement.requestFullscreen) {
+            if (!isIOS && document.documentElement.requestFullscreen) {
                 try { await document.documentElement.requestFullscreen(); }
                 catch (error) { console.warn("Fullscreen request failed. Continuing without fullscreen.", error); }
             }
@@ -510,6 +566,7 @@ function setupInputControls() {
         if (e.code === "KeyS") move.backward = true;
         if (e.code === "KeyA") move.left = true;
         if (e.code === "KeyD") move.right = true;
+        if (e.code === "KeyZ" && !isMobile && !renderer.xr.isPresenting) zoomHeld = true;
     });
 
     document.addEventListener("keyup", (e) => {
@@ -517,6 +574,7 @@ function setupInputControls() {
         if (e.code === "KeyS") move.backward = false;
         if (e.code === "KeyA") move.left = false;
         if (e.code === "KeyD") move.right = false;
+        if (e.code === "KeyZ") zoomHeld = false;
     });
 }
 
@@ -911,10 +969,26 @@ function applyMovement(movement, delta) {
         : playerBaseY + playerHeight;
 }
 
+function updateDesktopZoom(delta) {
+    if (!camera || isMobile || renderer.xr.isPresenting) {
+        zoomHeld = false;
+        return;
+    }
+
+    const targetFov = zoomHeld ? zoomCameraFov : normalCameraFov;
+    const nextFov = THREE.MathUtils.damp(camera.fov, targetFov, zoomLerpSpeed, delta);
+
+    if (Math.abs(camera.fov - nextFov) < 0.001) return;
+
+    camera.fov = nextFov;
+    camera.updateProjectionMatrix();
+}
+
 function animate(time, frame) {
     const delta = clock.getDelta();
 
     updateControllerModelMaterials();
+    updateDesktopZoom(delta);
 
     if (canMove && model) {
         if (renderer.xr.isPresenting) handleVRRightStickActions();
