@@ -474,10 +474,6 @@ async function init() {
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    // ACES gives a softer architectural render response than the default linear look.
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    // Lower this for a darker image, raise it if the scene becomes too dim.
-    renderer.toneMappingExposure = 0.72;
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = !isIOS;
